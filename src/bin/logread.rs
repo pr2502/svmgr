@@ -9,7 +9,7 @@ use svmgr::log::{LogEntry, LogReader};
 use tokio::fs::File;
 use tokio::io::AsyncSeekExt;
 use tokio::sync::mpsc;
-use tokio::task::LocalSet;
+use tokio::task;
 use tokio_stream::StreamExt;
 
 #[derive(Parser)]
@@ -59,13 +59,6 @@ impl Tag {
             },
         })
     }
-
-    fn len(&self) -> usize {
-        match &self.user {
-            Some(user) => self.sv.len() + 1 + user.len(),
-            None => self.sv.len(),
-        }
-    }
 }
 
 struct TaggedLogEntry {
@@ -87,39 +80,32 @@ async fn main() {
 
     let (tx, mut rx) = mpsc::channel(1);
 
-    let local = LocalSet::new();
-    let mut tag_len = 0;
     let base_path = Path::new("/var/log/sv");
     for log in &args.logs {
         let tx = tx.clone();
         if let Some(tag) = Tag::new(&log) {
-            tag_len = usize::max(tag.len(), tag_len);
             let path = base_path.join(log);
             if !path.exists() {
                 eprintln!("[{path}] does not exist");
                 continue;
             }
-            local.spawn_local(async move { tail_log(tag, &path, tx).await });
+            task::spawn(async move { tail_log(tag, &path, tx).await });
         } else {
             eprintln!("invalid service tag: `{log}`");
         }
     }
 
-    local.spawn_local(async move {
-        while let Some(log_entry) = rx.recv().await {
-            let tag = log_entry.tag;
-            let timestamp = log_entry
-                .entry
-                .local_timestamp()
-                .format("%Y-%m-%d %H:%M:%S.%3f");
-            let entry = String::from_utf8_lossy(log_entry.entry.as_slice());
-            for line in entry.lines() {
-                println!("{timestamp} {tag: <tag_len$} {line}");
-            }
+    while let Some(log_entry) = rx.recv().await {
+        let tag = log_entry.tag;
+        let timestamp = log_entry
+            .entry
+            .local_timestamp()
+            .format("%Y-%m-%d %H:%M:%S.%3f");
+        let entry = String::from_utf8_lossy(log_entry.entry.as_slice());
+        for line in entry.lines() {
+            println!("{timestamp} {tag} {line}");
         }
-    });
-
-    local.await;
+    }
 }
 
 async fn tail_log(tag: Tag, path: &Path, tx: mpsc::Sender<TaggedLogEntry>) {

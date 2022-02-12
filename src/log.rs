@@ -240,7 +240,7 @@ impl LogReader {
                     ErrorKind::UnexpectedEof,
                     "reader ended before synchronization point was found",
                 ))
-            },
+            }
             Ok(n) => {
                 self.read_total += n as u64;
                 self.bytes += n;
@@ -258,7 +258,7 @@ impl LogReader {
         loop {
             let slice = &self.buffer[..self.bytes];
             if let Some(start_offset) = slice
-                .array_windows()
+                .windows(4)
                 .position(|window| window == &SYNCHRONIZE_START)
             {
                 // shift the buffer to the left to drop unwanted bytes before the synchronization
@@ -300,7 +300,7 @@ impl LogReader {
         loop {
             let slice = &self.buffer[offset..self.bytes];
             if let Some(end_offset) = slice
-                .array_windows()
+                .windows(4)
                 .position(|window| window == &SYNCHRONIZE_END)
             {
                 break Ok(Some(offset + end_offset + SYNCHRONIZE_END.len()));
