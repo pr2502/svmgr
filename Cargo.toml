@@ -1,0 +1,16 @@
+[package]
+name = "svmgr"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.53"
+camino = "1.0.7"
+chrono = { version = "0.4.19", features = ["serde"] }
+clap = { version = "3.0.13", features = ["derive"] }
+inotify = "0.10.0"
+serde = { version = "1.0.136", features = ["derive"] }
+thiserror = "1.0.30"
+tokio = { version = "1.16.1", features = ["macros", "rt-multi-thread", "fs", "io-std", "sync", "io-util"] }
+tokio-stream = "0.1.8"
+toml = "0.5.8"
